@@ -4,6 +4,7 @@ import PokemonCard from '../../components/PokemonCard';
 import SearchBar from '../../components/SearchBar';
 import PokemonDetail from './PokemonDetail';
 import useGameStore from '../../store/useGameStore';
+import { useSoundEffects } from '../../hooks/useSoundEffects'; // sound hook
 
 export default function PokedexModule() {
   // Store
@@ -11,6 +12,11 @@ export default function PokedexModule() {
   const openDetail = useGameStore((state) => state.openDetail);
   const isDetailOpen = useGameStore((state) => state.ui.isDetailOpen);
   const closeDetail = useGameStore((state) => state.closeDetail);
+
+  // Sound effects
+  const { playSound } = useSoundEffects();
+  const isMounted = useRef(false); // tracks first mount to avoid initial sound
+  
 
   const [currentUrl, setCurrentUrl] = useState('https://pokeapi.co/api/v2/pokemon?limit=20');
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,6 +63,20 @@ export default function PokedexModule() {
 
   const { pokemons, loading, error, nextUrl, prevUrl } = usePokemons(currentUrl, debouncedQuery);
 
+  // --- SELECTION SOUND (navigation) ---
+  useEffect(() => {
+    // 1. Skip sound on first mount
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
+
+    // 2. Don't play while detail panel is open or data is loading (pagination)
+    if (isDetailOpen || loading) return;
+
+    playSound('move');
+  }, [selectedIndex, isDetailOpen, loading, playSound]);
+
   // Keyboard navigation
   useEffect(() => {
     if (isDetailOpen) return;
@@ -83,15 +103,23 @@ export default function PokedexModule() {
 
         case 'Enter':
           // Allow Enter to submit when search is focused
-          if (selectedIndex === -1) return;
-          
+          if (selectedIndex === -1) {
+            playSound('select');
+            return;
+          }
+
           e.preventDefault();
           if (selectedIndex >= 0 && selectedIndex < total) {
+            // Play select when opening detail
+            playSound('select');
             openDetail(pokemons[selectedIndex]);
           } else if (selectedIndex === total && prevUrl) {
+            // For pagination, play 'select' only; loading will suppress 'move'
+            playSound('select');
             setCurrentUrl(prevUrl);
-            setSelectedIndex(0); 
+            setSelectedIndex(0);
           } else if (selectedIndex === total + 1 && nextUrl) {
+            playSound('select');
             setCurrentUrl(nextUrl);
             setSelectedIndex(0);
           }
@@ -101,7 +129,7 @@ export default function PokedexModule() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndex, pokemons, isDetailOpen, openDetail, nextUrl, prevUrl]);
+  }, [selectedIndex, pokemons, isDetailOpen, openDetail, nextUrl, prevUrl, playSound]);
 
   // Camera (scroll)
   useEffect(() => {

@@ -1,22 +1,26 @@
 import { useEffect } from 'react';
 import useGameStore from '../../store/useGameStore';
+import { useSoundEffects } from '../../hooks/useSoundEffects';
+import { TYPE_COLORS } from '../../constants/typeColors';
 
 export default function PokemonDetail() {
   const selectedPokemon = useGameStore((state) => state.ui.selectedPokemon);
   const closeDetail = useGameStore((state) => state.closeDetail);
+  const { playSound } = useSoundEffects();
 
   // Key handlers (close)
   useEffect(() => {
     const handleDetailKeys = (e) => {
       if (!e.key) return;
       if (e.key.toLowerCase() === 'b' || e.key === 'Backspace' || e.key === 'Escape') {
+        playSound('back');
         closeDetail();
       }
     };
 
     window.addEventListener('keydown', handleDetailKeys);
     return () => window.removeEventListener('keydown', handleDetailKeys);
-  }, [closeDetail]);
+  }, [closeDetail, playSound]);
 
   if (!selectedPokemon) return null;
 
@@ -26,16 +30,32 @@ export default function PokemonDetail() {
       {/* Device container */}
       <div className="relative bg-[#38b000] border-8 border-[#081820] w-full max-w-lg h-auto max-h-[95vh] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col p-6 overflow-hidden">
         
-        {/* Header: title and close button */}
-        <div className="flex justify-between items-center border-b-4 border-[#081820] pb-4">
-          <h2 className="font-pixel text-xl text-white uppercase">{selectedPokemon.name}</h2>
-          <button 
-            type="button"
-            onClick={closeDetail} 
-            className="bg-red-600 border-4 border-black p-2 font-pixel text-[10px] text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 cursor-pointer"
-          >
-            GERİ (B)
-          </button>
+        {/* Üst Kısım: İsim ve Tür Rozetleri */}
+        <div className="flex justify-between items-end border-b-4 border-[#081820] pb-4">
+          <div>
+            <p className="font-pixel text-[8px] text-white/80 mb-1">#{String(selectedPokemon.id).padStart(3, '0')}</p>
+            <h2 className="font-pixel text-xl text-white uppercase">{selectedPokemon.name}</h2>
+          </div>
+          
+          <div className="flex items-end gap-2">
+            {selectedPokemon.types.map((t) => (
+              <span 
+                key={t.type.name}
+                style={{ backgroundColor: TYPE_COLORS[t.type.name] }}
+                className="px-3 py-1 border-2 border-black font-pixel text-[8px] text-white shadow-pixel uppercase"
+              >
+                {t.type.name}
+              </span>
+            ))}
+
+            <button 
+              type="button"
+              onClick={() => { playSound('back'); closeDetail(); }}
+              className="ml-2 bg-red-600 border-4 border-black p-2 font-pixel text-[10px] text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 cursor-pointer"
+            >
+              GERİ (B)
+            </button>
+          </div>
         </div>
 
         {/* Scrollable content */}
