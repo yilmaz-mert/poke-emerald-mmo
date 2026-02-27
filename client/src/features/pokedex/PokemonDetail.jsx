@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import useGameStore from '../../store/useGameStore';
 import { useSoundEffects } from '../../hooks/useSoundEffects';
 import { TYPE_COLORS } from '../../constants/typeColors';
@@ -7,6 +7,7 @@ export default function PokemonDetail() {
   const selectedPokemon = useGameStore((state) => state.ui.selectedPokemon);
   const closeDetail = useGameStore((state) => state.closeDetail);
   const { playSound } = useSoundEffects();
+  const [evolutionChain, setEvolutionChain] = useState([]);
 
   // Key handlers (close)
   useEffect(() => {
@@ -21,6 +22,49 @@ export default function PokemonDetail() {
     window.addEventListener('keydown', handleDetailKeys);
     return () => window.removeEventListener('keydown', handleDetailKeys);
   }, [closeDetail, playSound]);
+
+  // Fetch evolution chain when selectedPokemon changes
+  useEffect(() => {
+    if (!selectedPokemon) {
+      const t = setTimeout(() => setEvolutionChain([]), 0);
+      return () => clearTimeout(t);
+    }
+
+    let cancelled = false;
+
+    const fetchEvolutions = async () => {
+      try {
+        // 1. Get species data
+        const speciesRes = await fetch(selectedPokemon.species.url);
+        const speciesData = await speciesRes.json();
+
+        // 2. Get evolution chain
+        const evoRes = await fetch(speciesData.evolution_chain.url);
+        const evoData = await evoRes.json();
+
+        // 3. Parse linear chain into name+sprite list
+        const chain = [];
+        let current = evoData.chain;
+        while (current) {
+          const id = current.species.url.split('/').filter(Boolean).pop();
+          chain.push({
+            name: current.species.name,
+            sprite: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`,
+          });
+          current = current.evolves_to && current.evolves_to[0];
+        }
+
+        if (!cancelled) setEvolutionChain(chain);
+      } catch (err) {
+        console.error('Evrim zinciri yüklenemedi:', err);
+        if (!cancelled) setEvolutionChain([]);
+      }
+    };
+
+    fetchEvolutions();
+
+    return () => { cancelled = true; };
+  }, [selectedPokemon]);
 
   if (!selectedPokemon) return null;
 
@@ -86,6 +130,26 @@ export default function PokemonDetail() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* Evolution Chain Panel */}
+          <div className="mt-6 bg-[#e0f8d0] p-4 border-4 border-[#081820] shadow-pixel">
+            <h4 className="font-pixel text-[10px] text-[#081820] mb-4 underline uppercase">EVRİM ZİNCİRİ</h4>
+            <div className="flex items-center justify-around gap-2">
+              {evolutionChain.map((evo, index) => (
+                <div key={evo.name} className="flex items-center">
+                  <div className="flex flex-col items-center">
+                    <div className="bg-white border-2 border-black/10 rounded-full p-1 mb-1">
+                      <img src={evo.sprite} alt={evo.name} className="w-12 h-12 pixelated" />
+                    </div>
+                    <span className="font-pixel text-[8px] text-[#34441c] uppercase">{evo.name}</span>
+                  </div>
+                  {index < evolutionChain.length - 1 && (
+                    <span className="font-pixel text-[12px] text-[#081820] mx-2 animate-pulse">→</span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
