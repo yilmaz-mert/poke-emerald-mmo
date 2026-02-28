@@ -1,34 +1,19 @@
-// src/hooks/usePokemons.js
+// client/src/hooks/usePokemons.js
+import { useQuery } from '@tanstack/react-query';
 
-import { useState, useEffect } from 'react';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export function usePokemons(searchQuery = '') {
-  const [pokemons, setPokemons] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['pokemons', searchQuery], // Query değiştiğinde otomatik yeniler
+    queryFn: async () => {
+      const url = searchQuery ? `${API_URL}/api/pokemons?search=${searchQuery}` : `${API_URL}/api/pokemons`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Backend bağlantısı başarısız!');
+      return response.json();
+    },
+    staleTime: 1000 * 60 * 5, // Veriyi 5 dakika önbellekte (cache) tutar
+  });
 
-  useEffect(() => {
-    const fetchPokemons = async () => {
-      setLoading(true);
-      try {
-        // Kendi Backend URL'imiz (env ile dinamik)
-        const baseUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/pokemons`;
-        const url = searchQuery ? `${baseUrl}?search=${searchQuery}` : baseUrl;
-
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Backend bağlantısı başarısız!');
-        
-        const data = await response.json();
-        setPokemons(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPokemons();
-  }, [searchQuery]);
-
-  return { pokemons, loading, error };
+  return { pokemons: data || [], loading: isLoading, error };
 }
