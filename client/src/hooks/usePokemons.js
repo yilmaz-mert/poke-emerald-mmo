@@ -11,8 +11,8 @@ export function usePokemons(searchQuery = '') {
     const fetchPokemons = async () => {
       setLoading(true);
       try {
-        // Kendi Backend URL'imiz
-        const baseUrl = 'http://localhost:5000/api/pokemons';
+        // Kendi Backend URL'imiz (env ile dinamik)
+        const baseUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/pokemons`;
         const url = searchQuery ? `${baseUrl}?search=${searchQuery}` : baseUrl;
 
         const response = await fetch(url);

@@ -4,7 +4,7 @@ import { useSoundEffects } from '../../hooks/useSoundEffects';
 import { TYPE_COLORS } from '../../constants/typeColors';
 
 // --- 1. SABİTLER VE YARDIMCI FONKSİYONLAR (Bileşen Dışında) ---
-const API_URL = 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const buildUrl = (path) => {
   if (!path) return '';

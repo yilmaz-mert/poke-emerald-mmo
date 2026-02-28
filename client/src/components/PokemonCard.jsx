@@ -2,8 +2,8 @@ import React from 'react';
 import { TYPE_COLORS } from '../constants/typeColors';
 
 export default function PokemonCard({ pokemon }) {
-  // Backend adresini buraya da ekliyoruz
-  const API_URL = 'http://localhost:5000';
+  // Backend adresini buraya da ekliyoruz (env ile dinamik)
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   // Fallback image (Yedek resim)
   const fallbackImage = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png';

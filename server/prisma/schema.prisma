@@ -15,11 +15,14 @@ model Pokemon {
   weight           Int?
   baseExperience   Int?              @map("base_experience")
   spriteUrl        String?           @map("sprite_url")
-  animatedUrl      String?           @map("animated_url") // EKLE
-  artworkUrl       String?           @map("artwork_url")  // EKLE
+  animatedUrl      String?           @map("animated_url")
+  artworkUrl       String?           @map("artwork_url")  
   evolutionChainId Int?              @map("evolution_chain_id")
+  flavorText       String?           @map("flavor_text") // Açıklama yazısı
+  criesUrl         String?           @map("cries_url")   // Ses dosyası yolu
   stats            PokemonStats?
   types            PokemonType[]
+  abilities        PokemonAbility[]
   capturedBy       CapturedPokemon[]
 }
 
@@ -48,6 +51,22 @@ model PokemonStats {
   speed           Int     @default(0) // Yeni eklendi
   pokemon         Pokemon @relation(fields: [pokemonId], references: [id])
   pokemonId       Int     @unique
+}
+
+model Ability {
+  id       Int              @id @default(autoincrement())
+  name     String           @unique
+  pokemons PokemonAbility[]
+}
+
+model PokemonAbility {
+  pokemon   Pokemon @relation(fields: [pokemonId], references: [id])
+  pokemonId Int
+  ability   Ability @relation(fields: [abilityId], references: [id])
+  abilityId Int
+  isHidden  Boolean @default(false) @map("is_hidden") // Gizli yetenek mi?
+
+  @@id([pokemonId, abilityId])
 }
 
 model CapturedPokemon {
