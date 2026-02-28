@@ -1,0 +1,61 @@
+// server/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Pokemon {
+  id               Int               @id
+  name             String            @unique
+  height           Int?
+  weight           Int?
+  baseExperience   Int?              @map("base_experience")
+  spriteUrl        String?           @map("sprite_url")
+  animatedUrl      String?           @map("animated_url") // EKLE
+  artworkUrl       String?           @map("artwork_url")  // EKLE
+  evolutionChainId Int?              @map("evolution_chain_id")
+  stats            PokemonStats?
+  types            PokemonType[]
+  capturedBy       CapturedPokemon[]
+}
+
+model Type {
+  id       Int           @id @default(autoincrement())
+  name     String        @unique
+  pokemons PokemonType[]
+}
+
+model PokemonType {
+  pokemon   Pokemon @relation(fields: [pokemonId], references: [id])
+  pokemonId Int
+  type      Type    @relation(fields: [typeId], references: [id])
+  typeId    Int
+
+  @@id([pokemonId, typeId])
+}
+
+model PokemonStats {
+  id              Int     @id @default(autoincrement())
+  hp              Int     @default(0)
+  attack          Int     @default(0)
+  defense         Int     @default(0)
+  special_attack  Int     @default(0) // Yeni eklendi
+  special_defense Int     @default(0) // Yeni eklendi
+  speed           Int     @default(0) // Yeni eklendi
+  pokemon         Pokemon @relation(fields: [pokemonId], references: [id])
+  pokemonId       Int     @unique
+}
+
+model CapturedPokemon {
+  id         Int      @id @default(autoincrement())
+  userId     String   // İleride auth eklenince UUID olacak
+  pokemon    Pokemon  @relation(fields: [pokemonId], references: [id])
+  pokemonId  Int
+  nickname   String?
+  level      Int      @default(1)
+  capturedAt DateTime @default(now())
+}

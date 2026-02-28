@@ -1,0 +1,7 @@
+node_modules
+# Keep environment variables out of version control
+.env
+public/assets/gfx/pokemon/
+.DS_Store
+
+/generated/prisma
