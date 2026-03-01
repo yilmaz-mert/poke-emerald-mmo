@@ -1,20 +1,12 @@
 import React from 'react';
 import { TYPE_COLORS } from '../constants/typeColors';
 
-export default function PokemonCard({ pokemon }) {
-  // Backend adresini buraya da ekliyoruz (env ile dinamik)
+export default function PokemonCard({ pokemon, isSelected }) {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
-  // Fallback image (Yedek resim)
   const fallbackImage = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png';
 
-  // --- DÜZELTME BURADA ---
-  // Eğer gelen veri bir link değil de yerel yolsa (/assets/gfx/...), başına API_URL ekliyoruz.
   const rawPath = pokemon?.sprites?.other?.['official-artwork']?.front_default || pokemon?.spriteUrl;
-  
-  const imageUrl = rawPath 
-    ? (rawPath.startsWith('http') ? rawPath : `${API_URL}${rawPath}`)
-    : fallbackImage;
+  const imageUrl = rawPath ? (rawPath.startsWith('http') ? rawPath : `${API_URL}${rawPath}`) : fallbackImage;
 
   const handleImageError = (e) => {
     e.currentTarget.src = fallbackImage;
@@ -24,41 +16,38 @@ export default function PokemonCard({ pokemon }) {
   const mainType = pokemon.types?.[0]?.type?.name || 'normal';
   const cardColor = TYPE_COLORS[mainType] || '#A8A878';
 
+  // Seçili olma durumuna göre Gameboy menü efekti (Renkleri tersine çevir)
+  const bgColor = isSelected ? '#081820' : 'transparent';
+  const textColor = isSelected ? '#e0f8d0' : '#081820';
+
   return (
     <div
-      style={{ backgroundColor: `${cardColor}33`, borderColor: cardColor }}
-      className="relative border-4 p-4 flex flex-col items-center bg-opacity-20 shadow-pixel"
+      style={{ backgroundColor: bgColor, color: textColor }}
+      className={`border-b-4 border-[#081820] p-2 flex items-center justify-between gap-2 transition-colors duration-75 cursor-pointer ${isSelected ? 'pl-4' : 'pl-2'}`}
     >
-      <span className="text-gray-400 text-sm font-bold w-full text-right">
-        #{pokemon.id.toString().padStart(3, '0')}
-      </span>
-
-      {/* Type badge */}
-      <div
-        style={{ backgroundColor: cardColor }}
-        className="absolute top-2 left-2 px-2 py-0.5 text-[8px] font-pixel text-white border-2 border-black/20 uppercase"
-      >
-        {mainType}
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 bg-white/50 rounded-full flex items-center justify-center border-2 border-current">
+          <img 
+            src={imageUrl} 
+            alt={pokemon.name} 
+            onError={handleImageError} 
+            className="w-6 h-6 object-contain pixelated" 
+          />
+        </div>
+        <span className="font-pixel text-[10px] uppercase truncate max-w-30">
+          {pokemon.name}
+        </span>
       </div>
-
-      {/* Image Bölümü artık yerel sunucuna bakıyor */}
-      <img 
-        src={imageUrl} 
-        alt={pokemon.name} 
-        onError={handleImageError} 
-        className="w-32 h-32 object-contain mb-4 drop-shadow-lg pixelated" 
-      />
-
-      <h2 className="text-xl font-semibold capitalize text-[#081820] mb-3 font-pixel">
-        {pokemon.name}
-      </h2>
-
-      <div className="flex gap-2">
-        {pokemon.types.map((typeInfo) => (
-          <span key={typeInfo.type.name} className="px-3 py-1 bg-gray-100 text-gray-600 border border-gray-200 text-xs font-bold rounded-full capitalize">
-            {typeInfo.type.name}
-          </span>
-        ))}
+      
+      <div className="flex items-center gap-2 pr-2">
+         <div
+            style={{ backgroundColor: cardColor }}
+            className="w-3 h-3 border-2 border-current shadow-sm"
+            title={mainType}
+          />
+         <span className="font-pixel text-[10px]">
+            No.{pokemon.id.toString().padStart(3, '0')}
+         </span>
       </div>
     </div>
   );
