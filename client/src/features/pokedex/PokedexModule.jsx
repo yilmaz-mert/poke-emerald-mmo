@@ -14,7 +14,6 @@ export default function PokedexModule() {
 
   // --- SES VE REF'LER ---
   const { playSound } = useSoundEffects();
-  const isMounted = useRef(false);
   const pokemonRefs = useRef(new Map());
   const searchContainerRef = useRef(null);
 
@@ -49,16 +48,6 @@ export default function PokedexModule() {
   // usePokemons hook'una artık sadece debouncedQuery gönderiyoruz.
   const { pokemons, loading, error } = usePokemons(debouncedQuery);
 
-  // --- SES EFEKTİ KONTROLÜ ---
-  useEffect(() => {
-    if (!isMounted.current) {
-      isMounted.current = true;
-      return;
-    }
-    if (isDetailOpen || loading) return;
-    playSound('move');
-  }, [selectedIndex, isDetailOpen, loading, playSound]);
-
   // --- KLAVYE NAVİGASYON MANTIĞI ---
   useEffect(() => {
     if (isDetailOpen) return;
@@ -68,20 +57,39 @@ export default function PokedexModule() {
       const total = pokemons.length;
 
       switch (e.key) {
-        case 'ArrowRight': setSelectedIndex(prev => Math.min(prev + 1, total - 1)); break;
-        case 'ArrowLeft': setSelectedIndex(prev => Math.max(prev - 1, -1)); break;
-        
-        case 'ArrowDown':
-          if (selectedIndex === -1) setSelectedIndex(0);
-          else if (selectedIndex + gridCols < total) setSelectedIndex(prev => prev + gridCols);
-          break;
+      case 'ArrowRight': 
+        if (selectedIndex < total - 1) { // Eğer sağa gidebiliyorsa
+          setSelectedIndex(prev => prev + 1);
+          playSound('move'); // Sesi buraya taşıdık
+        }
+        break;
+      case 'ArrowLeft': 
+        if (selectedIndex > -1) { // Eğer sola gidebiliyorsa
+          setSelectedIndex(prev => prev - 1);
+          playSound('move');
+        }
+        break;
+      case 'ArrowDown':
+        if (selectedIndex === -1) {
+          setSelectedIndex(0);
+          playSound('move');
+        } else if (selectedIndex + gridCols < total) {
+          setSelectedIndex(prev => prev + gridCols);
+          playSound('move');
+        }
+        break;
+      case 'ArrowUp':
+        if (selectedIndex >= gridCols) {
+          setSelectedIndex(prev => prev - gridCols);
+          playSound('move');
+        } else if (selectedIndex >= 0) {
+          setSelectedIndex(-1);
+          playSound('move');
+        }
+        break;
 
-        case 'ArrowUp':
-          if (selectedIndex >= gridCols) setSelectedIndex(prev => prev - gridCols);
-          else if (selectedIndex >= 0) setSelectedIndex(-1); 
-          break;
-
-        case 'Enter':
+        case 'Enter' :
+        case 'a':
           if (selectedIndex === -1) {
             playSound('select');
             return; // SearchBar'ın kendi submit'i çalışacak
@@ -94,6 +102,8 @@ export default function PokedexModule() {
           }
           break;
         
+        case 'b':
+        case 'Backspace':
         case 'Escape':
           togglePokedex();
           break;

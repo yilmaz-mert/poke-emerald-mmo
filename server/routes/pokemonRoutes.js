@@ -15,6 +15,8 @@ router.get('/', async (req, res) => {
 
     const formattedPokemons = pokemons.map(p => ({
       ...p,
+      height: p.height, 
+      weight: p.weight,
       sprites: { front_default: p.spriteUrl, other: { 'official-artwork': { front_default: p.spriteUrl } } },
       types: p.types.map(t => ({ type: { name: t.type.name } })),
       stats: [
@@ -32,7 +34,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POKEMON DETAYI GETİR (PokemonDetail için - YENİ VERİLERLE)
+// POKEMON DETAYI GETİR 
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -41,7 +43,7 @@ router.get('/:id', async (req, res) => {
       include: {
         types: { include: { type: true } },
         stats: true,
-        abilities: { include: { ability: true } } // YENİ: Yetenekleri dahil et
+        abilities: { include: { ability: true } } 
       }
     });
 
@@ -55,6 +57,8 @@ router.get('/:id', async (req, res) => {
 
     res.json({
       ...pokemon,
+      height: pokemon.height, 
+      weight: pokemon.weight,
       sprites: {
         front_default: pokemon.spriteUrl,
         animated: pokemon.animatedUrl,
