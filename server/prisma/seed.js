@@ -1,59 +1,93 @@
 // server/prisma/seed.js
+require('dotenv').config();
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 const { PrismaClient } = require('@prisma/client');
 const { Pool } = require('pg');
 const { PrismaPg } = require('@prisma/adapter-pg');
-const fs = require('fs');
-const path = require('path');
-const { pipeline } = require('stream/promises');
+const { createClient } = require('@supabase/supabase-js');
 
-// Kendi veritabanı url'in
-const connectionString = "postgresql://postgres:12345@localhost:5432/pipirik-s-pokeworld?schema=public";
-const pool = new Pool({ connectionString });
+// --- SUPABASE KURULUMU ---
+// Lütfen kendi Supabase ANON KEY'inizi buraya yapıştırın.
+// (Dashboard > Project Settings > API kısmından bulabilirsiniz)
+const supabaseUrl = process.env.SUPABASE_URL || 'https://mrwutzuwgqroidgxbwxh.supabase.co';
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("Hata: .env dosyasında SUPABASE_URL veya SUPABASE_ANON_KEY bulunamadı!");
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// --- PRISMA VE VERİTABANI KURULUMU ---
+const connectionString = process.env.DIRECT_URL; 
+const pool = new Pool({ 
+  connectionString,
+  // SSL sertifika doğrulama hatasını aşmak için bu kısmı ekliyoruz
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-// Artık sadece resim değil, ses dosyası da indireceğimiz için adını downloadFile yaptık
-async function downloadFile(url, destPath) {
-  if (fs.existsSync(destPath)) return; // Dosya zaten varsa indirmeyi atla
+// --- SUPABASE STORAGE YÜKLEME FONKSİYONU ---
+async function uploadToSupabase(url, fileName, folder) {
+  if (!url) return null;
   
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`İndirme başarısız: ${url}`);
-  
-  const folder = path.dirname(destPath);
-  if (!fs.existsSync(folder)) fs.mkdirSync(folder, { recursive: true });
-  
-  const fileStream = fs.createWriteStream(destPath);
-  await pipeline(response.body, fileStream);
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`İndirme başarısız: ${url}`);
+    
+    // Veriyi blob olarak al
+    const blob = await response.blob();
+    const filePath = `${folder}/${fileName}`;
+
+    // Dosyayı Supabase 'pokemon-assets' bucket'ına yükle (varsa üzerine yazar)
+    const { data, error } = await supabase.storage
+      .from('pokemon-assets')
+      .upload(filePath, blob, { upsert: true });
+
+    if (error) throw error;
+
+    // Yüklenen dosyanın herkese açık (Public) URL'ini al
+    const { data: { publicUrl } } = supabase.storage
+      .from('pokemon-assets')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  } catch (error) {
+    console.error(`${fileName} yüklenirken hata:`, error.message);
+    return null;
+  }
 }
 
 async function main() {
-  console.log("Akıllı varlık sistemi kuruluyor... Tüm sütunlar kontrol edilecek 🚀");
+  console.log("Akıllı varlık sistemi çalışıyor... Tüm veriler Supabase'e aktarılacak 🚀");
 
   for (let i = 1; i <= 151; i++) {
     try {
-      // 1. AKILLI KONTROL: Veritabanında bu Pokemon var mı ve TÜM VERİLERİ tam mı?
+      // 1. AKILLI KONTROL
       const existingPokemon = await prisma.pokemon.findUnique({
         where: { id: i },
         include: { types: true, stats: true, abilities: true }
       });
 
-      // Bütün zorunlu/istenen alanların dolu olup olmadığını kontrol ediyoruz
+      // Eski yerel bağlantılar ('/assets/...') yerine Supabase bağlantıları var mı diye kontrol ediyoruz
       const isDataComplete = existingPokemon &&
-        existingPokemon.spriteUrl &&
-        existingPokemon.animatedUrl &&
-        existingPokemon.artworkUrl &&
+        existingPokemon.spriteUrl?.includes('supabase.co') && 
+        existingPokemon.animatedUrl?.includes('supabase.co') &&
+        existingPokemon.artworkUrl?.includes('supabase.co') &&
         existingPokemon.flavorText &&
-        existingPokemon.criesUrl &&
         existingPokemon.stats &&
         existingPokemon.types.length > 0 &&
         existingPokemon.abilities.length > 0;
 
       if (isDataComplete) {
-        console.log(`[${i}/151] Eksiksiz! Tüm veriler ve ilişkiler mevcut, atlanıyor... ⏭️`);
-        continue; // API'ye istek atmadan direkt bir sonrakine geç
+        console.log(`[${i}/151] Eksiksiz! Veriler zaten Supabase üzerinde mevcut, atlanıyor... ⏭️`);
+        continue; 
       }
 
-      // 2. VERİ ÇEKME İŞLEMİ (Eğer üstteki kontrolden geçemediyse eksik var demektir)
+      // 2. VERİ ÇEKME İŞLEMİ (PokeAPI'den)
       const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${i}`);
       const data = await response.json();
 
@@ -61,39 +95,26 @@ async function main() {
       const speciesData = await speciesRes.json();
 
       // --- VERİ AYIKLAMA ---
-      
-      // Evrim Zinciri ID'si
       const evoChainId = parseInt(speciesData.evolution_chain.url.split('/').filter(Boolean).pop());
 
-      // Hikaye (Flavor Text) - İngilizce olanı bul ve satır atlamalarını temizle
       const flavorTextEntry = speciesData.flavor_text_entries.find(entry => entry.language.name === 'en');
       const flavorText = flavorTextEntry ? flavorTextEntry.flavor_text.replace(/[\n\f\r]/g, ' ') : "Açıklama bulunamadı.";
 
-      // --- DOSYA İNDİRME İŞLEMLERİ (Görsel ve Ses) ---
+      // --- DOSYA YÜKLEME İŞLEMLERİ (Supabase Storage) ---
+      console.log(`[${i}/151] ${data.name.toUpperCase()} dosyaları çekilip Supabase Storage'a yükleniyor...`);
       
-      const staticLocalPath = `/assets/gfx/pokemon/gen1/static/${i}.png`;
-      const animatedLocalPath = `/assets/gfx/pokemon/gen1/animated/${i}.gif`;
-      const artworkLocalPath = `/assets/gfx/pokemon/gen1/artwork/${i}.png`;
-      const criesLocalPath = `/assets/audio/cries/${i}.ogg`;
-
-      // Temel Sprite
-      await downloadFile(data.sprites.front_default, path.join(__dirname, '../public', staticLocalPath));
+      const staticUrl = await uploadToSupabase(data.sprites.front_default, `${i}.png`, 'static');
       
-      // Animasyonlu Sprite
-      const animatedUrl = data.sprites.versions['generation-v']['black-white']?.animated?.front_default;
-      if (animatedUrl) await downloadFile(animatedUrl, path.join(__dirname, '../public', animatedLocalPath));
+      const animatedFetchUrl = data.sprites.versions['generation-v']['black-white']?.animated?.front_default;
+      const animatedUrl = animatedFetchUrl ? await uploadToSupabase(animatedFetchUrl, `${i}.gif`, 'animated') : staticUrl;
 
-      // Artwork (Yüksek kalite)
-      const artworkUrl = data.sprites.other['official-artwork']?.front_default;
-      if (artworkUrl) await downloadFile(artworkUrl, path.join(__dirname, '../public', artworkLocalPath));
+      const artworkFetchUrl = data.sprites.other['official-artwork']?.front_default;
+      const artworkUrl = artworkFetchUrl ? await uploadToSupabase(artworkFetchUrl, `${i}.png`, 'artwork') : staticUrl;
 
-      // Ses (Cries)
       const criesFetchUrl = data.cries?.latest;
-      if (criesFetchUrl) await downloadFile(criesFetchUrl, path.join(__dirname, '../public', criesLocalPath));
+      const criesUrl = criesFetchUrl ? await uploadToSupabase(criesFetchUrl, `${i}.ogg`, 'cries') : null;
 
       // --- VERİTABANI İLİŞKİLERİNİ HAZIRLAMA ---
-
-      // Yetenekleri (Abilities) Upsert ile hazırlıyoruz (Ara tabloya bağlamadan önce veritabanında olmalılar)
       const abilityConnections = [];
       for (const ab of data.abilities) {
         await prisma.ability.upsert({
@@ -101,14 +122,12 @@ async function main() {
           update: {},
           create: { name: ab.ability.name }
         });
-        // Ara tablo bağlantısı için array'e atıyoruz
         abilityConnections.push({
           ability: { connect: { name: ab.ability.name } },
           isHidden: ab.is_hidden
         });
       }
 
-      // Türleri (Types) Upsert ile hazırlıyoruz
       const typeConnections = [];
       for (const t of data.types) {
         await prisma.type.upsert({
@@ -121,7 +140,7 @@ async function main() {
         });
       }
 
-      // 3. VERİTABANINA KAYDETME (Eksikleri tamamla veya yeni oluştur)
+      // 3. VERİTABANINA KAYDETME (Supabase URL'leri ile güncelleniyor)
       await prisma.pokemon.upsert({
         where: { id: data.id },
         update: {
@@ -129,13 +148,12 @@ async function main() {
           height: data.height,
           weight: data.weight,
           baseExperience: data.base_experience,
-          spriteUrl: staticLocalPath,
-          animatedUrl: animatedUrl ? animatedLocalPath : staticLocalPath,
-          artworkUrl: artworkUrl ? artworkLocalPath : staticLocalPath,
-          criesUrl: criesFetchUrl ? criesLocalPath : null,
+          spriteUrl: staticUrl,
+          animatedUrl: animatedUrl,
+          artworkUrl: artworkUrl,
+          criesUrl: criesUrl,
           flavorText: flavorText,
           evolutionChainId: evoChainId,
-          // İlişkileri yenilemek için önce eskileri silip yenilerini ekliyoruz
           types: { deleteMany: {}, create: typeConnections },
           abilities: { deleteMany: {}, create: abilityConnections },
           stats: {
@@ -165,10 +183,10 @@ async function main() {
           height: data.height,
           weight: data.weight,
           baseExperience: data.base_experience,
-          spriteUrl: staticLocalPath,
-          animatedUrl: animatedUrl ? animatedLocalPath : staticLocalPath,
-          artworkUrl: artworkUrl ? artworkLocalPath : staticLocalPath,
-          criesUrl: criesFetchUrl ? criesLocalPath : null,
+          spriteUrl: staticUrl,
+          animatedUrl: animatedUrl,
+          artworkUrl: artworkUrl,
+          criesUrl: criesUrl,
           flavorText: flavorText,
           evolutionChainId: evoChainId,
           types: { create: typeConnections },
@@ -186,12 +204,12 @@ async function main() {
         }
       });
 
-      console.log(`[${i}/151] ${data.name.toUpperCase()} için eksik veriler indirildi ve güncellendi. ✅`);
+      console.log(`[${i}/151] ${data.name.toUpperCase()} için Supabase linkleri ve veritabanı güncellendi. ✅`);
     } catch (error) {
       console.error(`${i} ID'li Pokemon işlenirken hata:`, error);
     }
   }
-  console.log("İşlem Tamamlandı! Tüm varlıklar ve veriler %100 güncel. 🐉");
+  console.log("İşlem Tamamlandı! Tüm varlıklar buluta taşındı ve veritabanı %100 güncel. 🐉");
 }
 
 main().catch(e => console.error(e)).finally(() => prisma.$disconnect());
