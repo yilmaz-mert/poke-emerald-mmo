@@ -20,12 +20,9 @@ export default function PokemonDetail() {
     closeDetail();
   }, [closeDetail, playSound]);
 
-  // --- KLAVYE KONTROLÜ  ---
   useEffect(() => {
     const handleDetailKeys = (e) => {
-      if (['b', 'Backspace', 'Escape'].includes(e.key)) {
-        handleClose();
-      }
+      if (['b', 'Backspace', 'Escape'].includes(e.key)) handleClose();
     };
     window.addEventListener('keydown', handleDetailKeys);
     return () => window.removeEventListener('keydown', handleDetailKeys);
@@ -42,23 +39,28 @@ export default function PokemonDetail() {
     staleTime: 1000 * 60 * 60,
   });
 
+  // --- OTOMATİK SES (PLAY CRY) ---
+  // Pokemon verisi yüklendiğinde ve ses URL'si mevcut olduğunda çalışır
+  useEffect(() => {
+    if (pokemonFullData?.criesUrl) {
+      const timer = setTimeout(() => {
+        const audio = new Audio(buildUrl(pokemonFullData.criesUrl));
+        audio.volume = 0.1; // Sesi %10 seviyesine kıstık
+        audio.play().catch(err => console.log("Ses otomatik çalınamadı:", err));
+      }, 600); // Select sesinden sonra çalması için yarım saniye gecikme
+
+      return () => clearTimeout(timer);
+    }
+  }, [pokemonFullData?.criesUrl]);
+
   if (!selectedPokemon) return null;
   const mainTypeColor = TYPE_COLORS[selectedPokemon.types[0].type.name] || '#777';
   const displayImg = buildUrl(pokemonFullData?.sprites?.animated || pokemonFullData?.sprites?.artwork || selectedPokemon.spriteUrl);
-
-  const playCry = () => {
-    if (pokemonFullData?.criesUrl) {
-      const audio = new Audio(buildUrl(pokemonFullData.criesUrl));
-      audio.volume = 0.5;
-      audio.play();
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm">
       <div className="relative bg-[#38b000] border-8 border-[#081820] w-full max-w-lg shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col p-6 overflow-hidden max-h-[95vh]">
         
-        {/* Başlık Bölümü */}
         <div className="flex justify-between items-end border-b-4 border-[#081820] pb-4 shrink-0">
           <div>
             <p className="font-pixel text-[8px] text-white/80 mb-1">#{String(selectedPokemon.id).padStart(3, '0')}</p>
@@ -70,16 +72,13 @@ export default function PokemonDetail() {
                 {t.type.name}
               </span>
             ))}
-            <button onClick={playCry} className="ml-1 bg-blue-500 border-4 border-black p-2 font-pixel text-[10px] text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 cursor-pointer">
-              SES
-            </button>
+            {/* SES BUTONU BURADAN KALDIRILDI */}
             <button onClick={handleClose} className="bg-red-600 border-4 border-black p-2 font-pixel text-[10px] text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 cursor-pointer">
               GERİ (B)
             </button>
           </div>
         </div>
 
-        {/* İçerik Bölümü */}
         <div className="flex-1 overflow-y-auto py-4 custom-scrollbar pr-2">
           <div className="relative mt-2 flex items-center justify-center h-48 w-full bg-white/10 border-4 border-dashed border-[#081820]/20 rounded-lg overflow-hidden">
             <img src={displayImg} alt={selectedPokemon.name} className={`w-36 h-36 object-contain pixelated transition-all duration-500 ease-out ${isLoading ? 'opacity-0 scale-75' : 'opacity-100 scale-100'}`} />
@@ -92,7 +91,7 @@ export default function PokemonDetail() {
           )}
 
           <div className="space-y-4 mt-4">
-            <div className="bg-[#e0f8d0] p-3 border-4 border-[#081820] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] font-pixel text-[10px] flex justify-between">
+            <div className="bg-[#e0f8d0] p-3 border-4 border-[#081820] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] font-pixel text-[10px] text-[#081820] flex justify-between">
               <span className="uppercase">Boy: {(pokemonFullData?.height || selectedPokemon?.height) / 10} m</span>
               <span className="uppercase">Kilo: {(pokemonFullData?.weight || selectedPokemon?.weight) / 10} kg</span>
             </div>
