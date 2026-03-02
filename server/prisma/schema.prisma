@@ -9,8 +9,8 @@ datasource db {
 }
 
 model Pokemon {
-  id               Int               @id
-  name             String            @unique
+  id               Int               @id @default(autoincrement())
+  name             String
   height           Int?
   weight           Int?
   baseExperience   Int?              @map("base_experience")
@@ -24,6 +24,7 @@ model Pokemon {
   types            PokemonType[]
   abilities        PokemonAbility[]
   capturedBy       CapturedPokemon[]
+  @@index([name]) 
 }
 
 model Type {
@@ -77,4 +78,14 @@ model CapturedPokemon {
   nickname   String?
   level      Int      @default(1)
   capturedAt DateTime @default(now())
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  
+  // İleride eklenebilecek ilişkiler:
+  // caughtPokemons UserPokemon[]
 }

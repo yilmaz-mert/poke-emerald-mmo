@@ -41,13 +41,24 @@ export default function PokedexModule() {
 
   const { pokemons, loading, error } = usePokemons(debouncedQuery);
 
-  // Klavye Navigasyonu: Grid iptal edildiği için sadece Aşağı/Yukarı mantığı var
   useEffect(() => {
     if (isDetailOpen) return;
 
     const total = pokemons.length;
 
     const handleKeyDown = (e) => {
+      // ÇÖZÜM: Kullanıcı input alanındayken Gameboy kısayollarını iptal et
+      if (document.activeElement.tagName === 'INPUT') {
+        if (e.key === 'Escape') {
+          document.activeElement.blur(); // ESC'ye basınca input'tan çık
+          setSelectedIndex(0); // Listeye geri dön
+        } else if (e.key === 'Enter') {
+           // Form submit işlemi SearchBar içinde hallediliyor
+           return;
+        }
+        return; // Diğer tüm harfleri (a, b vb.) input'a bırak
+      }
+
       switch (e.key) {
         case 'ArrowDown':
           if (selectedIndex < total - 1) {
@@ -61,13 +72,13 @@ export default function PokedexModule() {
             playSound('move');
           }
           break;
-        case 'ArrowRight': // Sayfa atlama
+        case 'ArrowRight': 
           if (selectedIndex + 5 < total) {
             setSelectedIndex(prev => prev + 5);
             playSound('move');
           }
           break;
-        case 'ArrowLeft': // Sayfa geri
+        case 'ArrowLeft': 
           if (selectedIndex - 5 >= -1) {
             setSelectedIndex(prev => prev - 5);
             playSound('move');
@@ -75,6 +86,7 @@ export default function PokedexModule() {
           break;
         case 'Enter':
         case 'a':
+        case 'A':
           if (selectedIndex === -1) {
             playSound('select');
             return;
@@ -86,6 +98,7 @@ export default function PokedexModule() {
           }
           break;
         case 'b':
+        case 'B':
         case 'Backspace':
         case 'Escape':
           togglePokedex();
@@ -97,7 +110,6 @@ export default function PokedexModule() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedIndex, pokemons, isDetailOpen, openDetail, togglePokedex, playSound]);
 
-  // Kamera Takibi
   useEffect(() => {
     if (isDetailOpen) return;
     let target = null;
@@ -109,17 +121,14 @@ export default function PokedexModule() {
     }
   }, [selectedIndex, isDetailOpen, pokemons.length]);
 
-  // Önizleme için seçili pokemonu al
   const previewPokemon = pokemons[selectedIndex >= 0 ? selectedIndex : 0];
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const buildUrl = (path) => path?.startsWith('http') ? path : `${API_URL}${path?.startsWith('/') ? '' : '/'}${path}`;
 
   return (
     <div className={`relative bg-[#cc0000] border-8 border-black p-4 max-w-6xl w-[95%] h-[85vh] shadow-pixel flex flex-col ${isDetailOpen ? 'overflow-hidden' : ''}`}>
-      {/* Scanline Efekti */}
       <div className="scanlines"></div>
 
-      {/* Üst Kısım: Pokedex Işıkları ve Başlık */}
       <div className="flex justify-between items-center mb-4 px-2 z-10 relative">
         <div className="flex gap-2 items-center">
           <div className="w-10 h-10 rounded-full bg-blue-400 border-4 border-white shadow-[inset_-2px_-2px_0_rgba(0,0,0,0.3)] animate-pulse"></div>
@@ -133,9 +142,9 @@ export default function PokedexModule() {
       </div>
 
       <div className="flex-1 flex gap-4 overflow-hidden z-10 relative">
-        {/* SOL PANEL: Liste ve Arama */}
         <div className="w-1/2 flex flex-col bg-[#e0f8d0] border-8 border-[#081820] shadow-[inset_4px_4px_0_rgba(0,0,0,0.1)] rounded-bl-3xl overflow-hidden">
           <div ref={searchContainerRef} className={`p-2 bg-[#e0f8d0] border-b-4 border-[#081820] ${selectedIndex === -1 ? 'bg-yellow-200' : ''}`}>
+            {/* onSearch propunu olduğu gibi gönderiyoruz */}
             <SearchBar onSearch={setSearchQuery} />
           </div>
 
@@ -147,7 +156,22 @@ export default function PokedexModule() {
             ) : (
               <div className="flex flex-col pb-10">
                 {pokemons.map((pokemon, index) => (
-                  <div key={pokemon.id || pokemon.name} ref={(el) => el ? pokemonRefs.current.set(index, el) : pokemonRefs.current.delete(index)}>
+                  <div 
+                    key={pokemon.id || pokemon.name} 
+                    ref={(el) => el ? pokemonRefs.current.set(index, el) : pokemonRefs.current.delete(index)}
+                    /* ÇÖZÜM: Mouse Tıklama ve Üzerine Gelme Etkileşimi */
+                    onClick={() => {
+                      setSelectedIndex(index);
+                      playSound('select');
+                      openDetail(pokemon);
+                    }}
+                    onMouseEnter={() => {
+                      if (selectedIndex !== index) {
+                        setSelectedIndex(index);
+                        playSound('move');
+                      }
+                    }}
+                  >
                     <PokemonCard pokemon={pokemon} isSelected={index === selectedIndex} />
                   </div>
                 ))}
@@ -156,7 +180,6 @@ export default function PokedexModule() {
           </div>
         </div>
 
-        {/* SAĞ PANEL: Önizleme (Preview) Ekranı */}
         <div className="w-1/2 bg-[#081820] border-8 border-gray-300 p-4 rounded-br-3xl flex flex-col relative shadow-[inset_-4px_-4px_0_rgba(0,0,0,0.5)]">
           <div className="absolute top-2 left-1/2 -translate-x-1/2 w-16 h-2 bg-gray-400 rounded-full"></div>
           
@@ -184,7 +207,7 @@ export default function PokedexModule() {
                     ))}
                   </div>
                   <p className="font-pixel text-[8px] mt-4 opacity-70 animate-pulse">
-                    TAM VERİ İÇİN (A) VEYA ENTER'A BASIN
+                    TAM VERİ İÇİN TIKLAYIN VEYA (A)'YA BASIN
                   </p>
                 </div>
               </>

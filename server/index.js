@@ -7,11 +7,13 @@ const cors = require('cors');
 const pokemonRoutes = require('./routes/pokemonRoutes'); 
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
 // Rotaları sisteme bağla
+app.use('/auth', require('./routes/auth'));
 app.use('/api/pokemons', pokemonRoutes);
 
 const PORT = process.env.PORT || 5000; 

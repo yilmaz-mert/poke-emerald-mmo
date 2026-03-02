@@ -1,4 +1,3 @@
-// src/components/SearchBar.jsx
 import React, { useState } from 'react';
 
 export default function SearchBar({ onSearch }) {
@@ -8,7 +7,22 @@ export default function SearchBar({ onSearch }) {
     e.preventDefault();
     if (input.trim()) {
       onSearch(input.trim());
-      setInput(''); 
+      // Arama yaptıktan sonra input'ta yazının kalması daha iyi bir deneyimdir. 
+      // Ancak "X" butonuna basılırsa temizlenecek.
+    }
+  };
+
+  const handleClear = () => {
+    setInput('');
+    onSearch(''); // Aramayı sıfırla, böylece tüm pokemonlar tekrar listelenir
+  };
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setInput(val);
+    // Eğer kullanıcı yazıyı tamamen silerse, anında eski tam listeye dön:
+    if (val === '') {
+      onSearch('');
     }
   };
 
@@ -22,9 +36,19 @@ export default function SearchBar({ onSearch }) {
           type="text"
           placeholder="POKEMON ARA..."
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          className="w-full bg-[#e0f8d0] border-4 border-[#e0f8d0] pl-8 p-2 font-pixel text-[#081820] text-[10px] placeholder:text-[#081820]/50 focus:outline-none focus:border-white uppercase"
+          onChange={handleChange}
+          className="w-full bg-[#e0f8d0] border-4 border-[#e0f8d0] pl-8 pr-8 p-2 font-pixel text-[#081820] text-[10px] placeholder:text-[#081820]/50 focus:outline-none focus:border-white uppercase"
         />
+        {/* ÇÖZÜM: Arama temizleme butonu */}
+        {input && (
+          <button 
+            type="button" 
+            onClick={handleClear}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[#081820] font-pixel text-[12px] hover:text-red-600 transition-colors"
+          >
+            X
+          </button>
+        )}
       </div>
       <button
         type="submit"
