@@ -81,11 +81,21 @@ model CapturedPokemon {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique
-  password  String
-  createdAt DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  username      String   @unique
+  password      String
+  
+  // MMO ve Oyun İçi Özellikler
+  avatar        String   @default("brendan") // 'brendan' veya 'may'
+  pokeDollars   Int      @default(3000)      // Başlangıç parası
+  mapLocation   String   @default("littleroot_town")
+  posX          Int      @default(5)
+  posY          Int      @default(5)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   
   // İleride eklenebilecek ilişkiler:
   // caughtPokemons UserPokemon[]
+  // friends        Friendship[]
 }

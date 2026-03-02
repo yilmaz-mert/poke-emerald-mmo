@@ -25,3 +25,4 @@ dist-ssr
 
 # Local client environment (Vite)
 client/.env
+client/public/sprites
