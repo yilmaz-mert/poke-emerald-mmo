@@ -1,33 +1,37 @@
 import { useEffect, useRef } from 'react';
 import Phaser from 'phaser';
 import MainScene from './MainScene';
+import HUD from './HUD'; 
+import PokedexModule from '../pokedex/PokedexModule';
+import useGameStore from '../../store/useGameStore'; // Store'u import et
 
-const GameComponent = () => {
+const GameScreen = () => {
   const gameRef = useRef(null);
+  
+  // Store'dan Pokedex'in açık olup olmadığını dinliyoruz
+  const isPokedexOpen = useGameStore((state) => state.ui.isPokedexOpen);
 
   useEffect(() => {
-    // Gameboy Emerald hissiyatını korumak için pixelArt: true çok önemli.
     const config = {
       type: Phaser.AUTO,
-      width: 800, // Oyun penceresi genişliği (kendi tasarımına göre ayarlayabilirsin)
-      height: 600,
       parent: 'phaser-game-container',
-      pixelArt: true, // Anti-aliasing'i kapatır, keskin pikseller sağlar
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: 800,
+        height: 600,
+      },
+      render: { pixelArt: true, roundPixels: true },
       physics: {
         default: 'arcade',
-        arcade: {
-          gravity: { y: 0 }, // Üstten görünümlü (Top-down) RPG olduğu için yerçekimi 0
-          debug: false // Geliştirme aşamasında true yaparak collision kutularını görebilirsin
-        }
+        arcade: { gravity: { y: 0 } }
       },
       scene: [MainScene]
     };
 
-    // Oyunu başlat
     const game = new Phaser.Game(config);
     gameRef.current = game;
 
-    // React bileşeni unmount olduğunda Phaser instance'ını temizle
     return () => {
       if (gameRef.current) {
         gameRef.current.destroy(true);
@@ -37,9 +41,23 @@ const GameComponent = () => {
   }, []);
 
   return (
-    // React UI bileşenlerini bu kapsayıcının üzerine z-index ile yerleştirebilirsin
-    <div id="phaser-game-container" className="relative w-full h-full overflow-hidden" />
+    <div className="relative w-full h-screen bg-black flex items-center justify-center overflow-hidden">
+      {/* Oyun Alanı */}
+      <div id="phaser-game-container" className="absolute inset-0 z-0 flex items-center justify-center" />
+      
+      {/* UI Katmanı */}
+      <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center">
+        <HUD />
+        
+        {/* KRİTİK DÜZELTME: Sadece açıkken render et */}
+        {isPokedexOpen && (
+          <div className="pointer-events-auto w-full flex justify-center">
+            <PokedexModule />
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
-export default GameComponent;
+export default GameScreen;

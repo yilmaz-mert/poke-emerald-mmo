@@ -77,6 +77,15 @@ export default class MainScene extends Phaser.Scene {
     const speed = 120;
     this.player.setVelocity(0);
 
+    // Arayüz açık mı kontrol et
+    const { ui } = useGameStore.getState();
+    if (ui.isPokedexOpen || ui.isBagOpen || ui.isDetailOpen) {
+      this.player.setVelocity(0);
+      this.player.anims.stop();
+      this.player.setFrame(0);
+      return; 
+    }
+
     if (this.cursors.left.isDown) {
       this.player.setVelocityX(-speed);
       this.player.anims.play('walk-left', true);
