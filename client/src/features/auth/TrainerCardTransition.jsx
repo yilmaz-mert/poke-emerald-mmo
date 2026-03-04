@@ -31,13 +31,18 @@ export default function TrainerCardTransition({ onComplete }) {
         </div>
 
         <div className="p-4 flex gap-4">
-          {/* Avatar Kısmı */}
-          <div className="w-20 h-24 bg-white border-2 border-emerald-800 flex items-center justify-center p-1">
-            <img 
-              src={`/sprites/${user?.avatar || 'brendan'}_walk.gif`} 
-              alt="Trainer" 
-              className="w-full h-full object-contain pixelated"
-              onError={(e) => e.target.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png'}
+          {/* Avatar Kısmı - ATLAS ENTEGRASYONU */}
+          <div className="w-20 h-24 bg-white border-2 border-emerald-800 flex items-center justify-center p-1 overflow-hidden">
+            <div 
+              style={{
+                width: '37px', 
+                height: '55px',
+                backgroundImage: "url('/assets/sprites/players.png')",
+                // user.avatar 'may' ise X ekseninde -37px kaydır, değilse 0'da bırak
+                backgroundPosition: user?.avatar === 'may' ? '-37px -330px' : '0px -330px', 
+                imageRendering: 'pixelated',
+                transform: 'scale(1.5)' // Avatarı kartın içine tam oturtmak için
+              }}
             />
           </div>
 
