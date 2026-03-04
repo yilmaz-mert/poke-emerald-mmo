@@ -7,13 +7,18 @@ export default class MainScene extends Phaser.Scene {
     this.player = null;
     this.cursors = null;
     this.topLayer = null;
+    this.groundLayer = null; 
     this.lastSentX = 0;
     this.lastSentY = 0;
+    // Animasyon verilerini tutacağımız dizi
+    this.animatedTiles = []; 
   }
 
   preload() {
-    this.load.tilemapTiledJSON('map', '/assets/tilemaps/littleroot_8x8.json');
-    this.load.image('tiles', '/assets/tilesets/littleroot_8x8_tileset.png');
+    const version = Date.now();
+    this.load.tilemapTiledJSON('map', `/assets/tilemaps/littleroot_8x8.json?v=${version}`);
+    this.load.image('tiles', `/assets/tilesets/littleroot_8x8_tileset.png?v=${version}`);
+    
     this.load.spritesheet('player_down', '/assets/sprites/player_down.png', { frameWidth: 16, frameHeight: 32 });
     this.load.spritesheet('player_up', '/assets/sprites/player_up.png', { frameWidth: 16, frameHeight: 32 });
     this.load.spritesheet('player_left', '/assets/sprites/player_left.png', { frameWidth: 16, frameHeight: 32 });
@@ -23,8 +28,8 @@ export default class MainScene extends Phaser.Scene {
     const map = this.make.tilemap({ key: 'map' });
     const tileset = map.addTilesetImage('littleroot_8x8_tileset', 'tiles');
     
-    const groundLayer = map.createLayer('Ground', tileset, 0, 0);
-    groundLayer.setDepth(0);
+    this.groundLayer = map.createLayer('Ground', tileset, 0, 0);
+    this.groundLayer.setDepth(0);
 
     const collisionLayer = map.createLayer('Collisions', tileset, 0, 0);
     collisionLayer.setDepth(1);
@@ -32,20 +37,15 @@ export default class MainScene extends Phaser.Scene {
 
     const { posX, posY } = useGameStore.getState();
 
-    // Karakter Oluşturma
     this.player = this.physics.add.sprite(posX || 200, posY || 200, 'player_down');
     this.player.setOrigin(0.5, 1);
     this.player.setCollideWorldBounds(true);
-    
-    // 16x8 Hitbox (Ayak kısmı)
     this.player.body.setSize(16, 8);
     this.player.body.setOffset(0, 24);
-    
-    // Başlangıç derinliği
-    this.player.setDepth(11); 
+    this.player.setDepth(11);
 
     this.topLayer = map.createLayer('Top', tileset, 0, 0);
-    this.topLayer.setDepth(10); // Sabit 10
+    this.topLayer.setDepth(10);
 
     this.physics.add.collider(this.player, collisionLayer);
 
@@ -56,10 +56,42 @@ export default class MainScene extends Phaser.Scene {
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.createAnimations();
+
+    // 1. ADIM: Haritadaki animasyonlu tile'ları bul ve hazırla
+    this.initAnimatedTiles(map);
   }
 
-  update() {
+  // Özel Animasyon Başlatıcı Fonksiyonumuz
+  initAnimatedTiles(map) {
+    this.animatedTiles = [];
+    
+    map.tilesets.forEach(tileset => {
+      const tileData = tileset.tileData;
+      if (tileData) {
+        for (let tileid in tileData) {
+          if (tileData[tileid].animation) {
+            const animData = tileData[tileid].animation;
+            this.animatedTiles.push({
+              currentFrame: 0,
+              elapsedTime: 0,
+              frames: animData.map(f => ({
+                // Tiled Local ID'sini Phaser Global ID'sine (GID) çeviriyoruz
+                gid: f.tileid + tileset.firstgid, 
+                duration: f.duration
+              }))
+            });
+          }
+        }
+      }
+    });
+  }
+
+  // update metoduna 'time' ve 'delta' (geçen süre) parametrelerini ekledik
+  update(time, delta) { 
     if (!this.player || !this.cursors) return;
+
+    // 2. ADIM: Her karede çiçekleri kontrol et ve salla
+    this.updateAnimatedTiles(delta);
 
     const speed = 120;
     this.player.setVelocity(0);
@@ -71,7 +103,6 @@ export default class MainScene extends Phaser.Scene {
       return; 
     }
 
-    // Hareket Kontrolleri
     if (this.cursors.left.isDown) {
       this.player.setVelocityX(-speed);
       this.player.anims.play('walk-left', true);
@@ -98,32 +129,39 @@ export default class MainScene extends Phaser.Scene {
       this.updateZustandPosition();
     }
 
-    // --- GELİŞMİŞ Z-SORTING (ÖN-ARKA AYARI) ---
-    
-    // Varsayılan: Oyuncu tabelanın/evlerin önündedir (Depth: 11)
     this.player.setDepth(11);
-
     const bounds = this.player.getBounds();
-    // Karakterin sprite'ının değdiği tüm Top katmanı tile'larını alıyoruz
-    const overlappingTiles = this.topLayer.getTilesWithinWorldXY(
-      bounds.x, 
-      bounds.y, 
-      bounds.width, 
-      bounds.height, 
-      { isNotEmpty: true }
-    );
+    const overlappingTiles = this.topLayer.getTilesWithinWorldXY(bounds.x, bounds.y, bounds.width, bounds.height, { isNotEmpty: true });
 
     for (const tile of overlappingTiles) {
       const tileBottom = tile.pixelY + tile.height;
-      
-      // Eğer karakterin ayakları (this.player.y), değdiği herhangi bir 
-      // üst katman objesinin alt sınırından yukarıdaysa (kuzeyindeyse)...
       if (this.player.y <= tileBottom) {
-        // ...karakter o objenin arkasındadır.
         this.player.setDepth(5);
-        break; // Bir tane bile "arkasında" olduğu tile bulursak derinliği düşürüp döngüden çıkıyoruz
+        break; 
       }
     }
+  }
+
+  // Animasyonların Karelerini Değiştiren Döngü
+  updateAnimatedTiles(delta) {
+    this.animatedTiles.forEach(anim => {
+      anim.elapsedTime += delta;
+      const currentFrameData = anim.frames[anim.currentFrame];
+      
+      // Tiled'da belirlediğin süre (örneğin 450ms) geçtiyse
+      if (anim.elapsedTime >= currentFrameData.duration) {
+        anim.elapsedTime -= currentFrameData.duration;
+        
+        const oldGid = currentFrameData.gid;
+        
+        // Sıradaki kareye geç (133 -> 137 vb.)
+        anim.currentFrame = (anim.currentFrame + 1) % anim.frames.length;
+        const newGid = anim.frames[anim.currentFrame].gid;
+        
+        // Haritadaki tüm eski çiçek karelerini yenisiyle değiştir (çok performanslıdır)
+        this.groundLayer.replaceByIndex(oldGid, newGid);
+      }
+    });
   }
 
   updateZustandPosition() {
